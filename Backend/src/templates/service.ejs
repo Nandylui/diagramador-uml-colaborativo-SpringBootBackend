@@ -1,0 +1,35 @@
+// src/templates/service.ejs
+// Plantilla para generar un servicio en Spring Boot
+package com.example.<%= projectName %>.service;
+
+import com.example.<%= projectName %>.domain.<%= EntityName %>;
+import com.example.<%= projectName %>.repository.<%= EntityName %>Repository;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class <%= EntityName %>Service {
+    
+    private final <%= EntityName %>Repository repository;
+
+    public <%= EntityName %>Service(<%= EntityName %>Repository repository) {
+        this.repository = repository;
+    }
+
+    public List<<%= EntityName %>> findAll() {
+        return repository.findAll();
+    }
+
+    public Optional<<%= EntityName %>> findById(Long id) {
+        return repository.findById(id);
+    }
+
+    public <%= EntityName %> save(<%= EntityName %> entity) {
+        return repository.save(entity);
+    }
+
+    public void deleteById(Long id) {
+        repository.deleteById(id);
+    }
+}

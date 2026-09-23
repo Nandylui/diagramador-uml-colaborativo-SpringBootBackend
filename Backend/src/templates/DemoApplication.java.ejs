@@ -1,0 +1,13 @@
+// src/templates/DemoApplication.java.ejs
+// Clase principal de la aplicación Spring Boot
+package com.example.<%= projectName %>;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class DemoApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(DemoApplication.class, args);
+    }
+}

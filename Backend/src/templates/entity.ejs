@@ -1,0 +1,32 @@
+// src/templates/entity.ejs
+// Plantilla para generar una entidad JPA en Spring Boot
+package com.example.<%= projectName %>.domain;
+
+import jakarta.persistence.*;
+import java.io.Serializable;
+<% if (hasLocalDate) { %>import java.time.LocalDate;<% } %>
+<% if (hasLocalDateTime) { %>import java.time.LocalDateTime;<% } %>
+
+@Entity
+@Table(name = "<%= tableName %>")
+public class <%= EntityName %> implements Serializable {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  <% columns.forEach(function(col){ %>
+  @Column(name = "<%= col.name %>"<% if (!col.nullable) { %>, nullable = false<% } %>)
+  private <%= col.javaType %> <%= col.fieldName %>;
+  <% }); %>
+
+  public <%= EntityName %>() {}
+
+  public Long getId() { return id; }
+  public void setId(Long id) { this.id = id; }
+
+  <% columns.forEach(function(col){ %>
+  public <%= col.javaType %> get<%= col.FieldNameCapital %>() { return this.<%= col.fieldName %>; }
+  public void set<%= col.FieldNameCapital %>(<%= col.javaType %> <%= col.fieldName %>) { this.<%= col.fieldName %> = <%= col.fieldName %>; }
+  <% }); %>
+}

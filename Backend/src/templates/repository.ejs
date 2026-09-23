@@ -1,0 +1,11 @@
+// src/templates/repository.ejs
+// Plantilla para generar un repositorio JPA en Spring Boot
+package com.example.<%= projectName %>.repository;
+
+import com.example.<%= projectName %>.domain.<%= EntityName %>;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface <%= EntityName %>Repository extends JpaRepository<<%= EntityName %>, Long> {
+}

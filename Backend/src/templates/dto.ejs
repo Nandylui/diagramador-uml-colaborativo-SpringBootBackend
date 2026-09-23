@@ -1,0 +1,25 @@
+// src/templates/dto.ejs
+// Plantilla para generar un DTO en Spring Boot
+package com.example.<%= projectName %>.dto;
+
+<% if (hasLocalDate) { %>import java.time.LocalDate;<% } %>
+<% if (hasLocalDateTime) { %>import java.time.LocalDateTime;<% } %>
+
+public class <%= EntityName %>Dto {
+
+    private Long id;
+
+    <% columns.forEach(function(col){ %>
+    private <%= col.javaType %> <%= col.fieldName %>;
+    <% }); %>
+
+    public <%= EntityName %>Dto() {}
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    <% columns.forEach(function(col){ %>
+    public <%= col.javaType %> get<%= col.FieldNameCapital %>() { return this.<%= col.fieldName %>; }
+    public void set<%= col.FieldNameCapital %>(<%= col.javaType %> <%= col.fieldName %>) { this.<%= col.fieldName %> = <%= col.fieldName %>; }
+    <% }); %>
+}

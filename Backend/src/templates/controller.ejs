@@ -1,0 +1,46 @@
+// src/templates/controller.ejs
+// Plantilla para generar un controlador REST en Spring Boot
+
+package com.example.<%= projectName %>.controller;
+
+import com.example.<%= projectName %>.domain.<%= EntityName %>;
+import com.example.<%= projectName %>.service.<%= EntityName %>Service;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/<%= entityPath %>s")
+@CrossOrigin(origins = "*")
+public class <%= EntityName %>Controller {
+
+    private final <%= EntityName %>Service service;
+
+    public <%= EntityName %>Controller(<%= EntityName %>Service service) {
+        this.service = service;
+    }
+
+    @GetMapping
+    public List<<%= EntityName %>> getAll() {
+        return service.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<<%= EntityName %>> getById(@PathVariable Long id) {
+        return service.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public <%= EntityName %> create(@RequestBody <%= EntityName %> entity) {
+        return service.save(entity);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+}
