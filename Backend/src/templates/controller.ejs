@@ -1,6 +1,4 @@
 // src/templates/controller.ejs
-// Plantilla para generar un controlador REST en Spring Boot
-
 package com.example.<%= projectName %>.controller;
 
 import com.example.<%= projectName %>.domain.<%= EntityName %>;
@@ -21,11 +19,13 @@ public class <%= EntityName %>Controller {
         this.service = service;
     }
 
+    // 1. READ ALL
     @GetMapping
     public List<<%= EntityName %>> getAll() {
         return service.findAll();
     }
 
+    // 2. READ BY ID
     @GetMapping("/{id}")
     public ResponseEntity<<%= EntityName %>> getById(@PathVariable Long id) {
         return service.findById(id)
@@ -33,14 +33,29 @@ public class <%= EntityName %>Controller {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // 3. CREATE
     @PostMapping
-    public <%= EntityName %> create(@RequestBody <%= EntityName %> entity) {
-        return service.save(entity);
+    public ResponseEntity<<%= EntityName %>> create(@RequestBody <%= EntityName %> entity) {
+        return ResponseEntity.ok(service.save(entity));
     }
 
+    // 4. UPDATE 
+    @PutMapping("/{id}")
+    public ResponseEntity<<%= EntityName %>> update(@PathVariable Long id, @RequestBody <%= EntityName %> entityDetails) {
+        return service.findById(id).map(existingEntity -> {
+            // Aseguramos que el ID del objeto coincida con la ruta para no crear uno nuevo
+            entityDetails.setId(existingEntity.getId());
+            return ResponseEntity.ok(service.save(entityDetails));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // 5. DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.deleteById(id);
-        return ResponseEntity.noContent().build();
+        if (service.findById(id).isPresent()) {
+            service.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 }

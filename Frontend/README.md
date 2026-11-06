@@ -62,3 +62,32 @@ CREATE TABLE user_room (
     room_id INTEGER REFERENCES rooms(id),
     PRIMARY KEY (user_id, room_id)
 );
+
+### 3. Ejemplo de como generar tus USUARIOS ejemplos..
+(1)
+luis@gmail.com
+123
+
+(2)
+carlos@gmail.com
+password123
+
+### 4. Como ejecutar cada uno
+Abrir una terminal tanto para el backend y como para front
+
+(1) Terminal del backend
+- cd Backend
+- npm run dev
+
+(2) Terminal del front
+- cd Frontend
+- npm run dev
+
+## Observaciones
+Hay observaciones en la parte del Exportar, del diagramador y hacerlo correr en EA
+no lo dibuja tambien, manualmente se debe acomodar.. y las aun no hay correccion con las 
+clases intermedias no las dibuja en el EA.
+
+La parte de Importar, cuando Importas un diagrama del EA al diagramador, lo hace, 
+pero en el caso de las relaciones uno debe arreglarlo manualmente.
+

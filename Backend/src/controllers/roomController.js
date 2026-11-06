@@ -34,12 +34,12 @@ const crearSala = async (req, res) => {
                 [ownerid, salaId]
             );
         } catch (e) {
-            console.log("⚠️ Advertencia: No se pudo insertar en user_room. Revisa si las columnas son user_id y room_id.");
+            console.log(" Advertencia: No se pudo insertar en user_room. Revisa si las columnas son user_id y room_id.");
         }
 
         res.status(201).json({ mensaje: 'Sala creada exitosamente', sala: nuevaSala.rows[0] });
     } catch (error) {
-        console.error("🔥 Error en crearSala:", error);
+        console.error(" Error en crearSala:", error);
         res.status(500).json({ message: 'Error al crear la sala: ' + error.message });
     }
 };
@@ -64,13 +64,13 @@ const unirseSala = async (req, res) => {
             }
             await db.query('INSERT INTO user_room (user_id, room_id) VALUES ($1, $2)', [userId, salaId]);
         } catch (e) {
-            console.error("🔥 Error en tabla user_room:", e.message);
+            console.error(" Error en tabla user_room:", e.message);
             return res.status(500).json({ message: 'Error de BD con la tabla user_room. Revisa las columnas.' });
         }
 
         res.status(200).json({ mensaje: 'Te has unido a la sala exitosamente', sala: salaQuery.rows[0] });
     } catch (error) {
-        console.error("🔥 Error en unirseSala:", error);
+        console.error(" Error en unirseSala:", error);
         res.status(500).json({ message: 'Error al unirse a la sala: ' + error.message });
     }
 };
@@ -94,7 +94,7 @@ const obtenerMisSalas = async (req, res) => {
                 return res.status(200).json(salas.rows);
             }
         } catch (joinError) {
-            console.log("⚠️ Advertencia: Falló JOIN con user_room. Pasando al Plan B (ownerid).");
+            console.log(" Advertencia: Falló JOIN con user_room. Pasando al Plan B (ownerid).");
         }
 
         // PLAN B (Fallback): Si falla el Plan A, solo obtener las salas donde soy dueño
@@ -102,7 +102,7 @@ const obtenerMisSalas = async (req, res) => {
         res.status(200).json(salasPlanB.rows);
 
     } catch (error) {
-        console.error("🔥 Error grave en obtenerMisSalas:", error);
+        console.error(" Error grave en obtenerMisSalas:", error);
         res.status(500).json({ message: 'Error al obtener las salas: ' + error.message });
     }
 };
@@ -123,7 +123,7 @@ const actualizarSala = async (req, res) => {
         );
         res.status(200).json({ mensaje: 'Sala actualizada', sala: salaActualizada.rows[0] });
     } catch (error) {
-        console.error("🔥 Error en actualizarSala:", error);
+        console.error(" Error en actualizarSala:", error);
         res.status(500).json({ message: 'Error al actualizar la sala' });
     }
 };
@@ -144,7 +144,7 @@ const eliminarSala = async (req, res) => {
 
         res.status(200).json({ mensaje: 'Sala eliminada correctamente' });
     } catch (error) {
-        console.error("🔥 Error en eliminarSala:", error);
+        console.error(" Error en eliminarSala:", error);
         res.status(500).json({ message: 'Error al eliminar la sala: ' + error.message });
     }
 };
@@ -170,7 +170,7 @@ const guardarDiagrama = async (req, res) => {
         await db.query('UPDATE rooms SET diagrama = $1 WHERE id = $2', [diagrama, id]);
         res.status(200).json({ mensaje: 'Diagrama guardado correctamente' });
     } catch (error) {
-        console.error("🔥 Error en guardarDiagrama:", error);
+        console.error(" Error en guardarDiagrama:", error);
         res.status(500).json({ message: 'Error al guardar el diagrama' });
     }
 };
@@ -195,7 +195,7 @@ const obtenerDiagrama = async (req, res) => {
         const sala = await db.query('SELECT diagrama FROM rooms WHERE id = $1', [id]);
         res.status(200).json({ diagrama: sala.rows[0].diagrama || {} });
     } catch (error) {
-        console.error("🔥 Error en obtenerDiagrama:", error);
+        console.error(" Error en obtenerDiagrama:", error);
         res.status(500).json({ message: 'Error al obtener el diagrama' });
     }
 };

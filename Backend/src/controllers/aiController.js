@@ -1,5 +1,4 @@
 // src/controllers/aiController.js
-
 // Controlador para manejar las solicitudes relacionadas con la IA
 
 const procesarInstruccionIA = async (req, res) => {

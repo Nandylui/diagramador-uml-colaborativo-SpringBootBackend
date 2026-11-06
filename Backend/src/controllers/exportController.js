@@ -35,52 +35,54 @@ const getUserId = (req) => {
     return req.user?.id || req.usuario?.id || req.user?.id_usuario || req.usuario?.id_usuario;
 };
 
-// Función principal para exportar un diagrama UML a un proyecto Spring Boot
-const exportarASpringBoot = async (req, res) => {
-    const { id } = req.params; 
-    const userId = getUserId(req);
-
+// ============================================================================
+// FUNCION COMPARTIDA PARA GENERAR EL PROYECTO
+// ============================================================================
+const generarProyecto = async (nodes, edges, projectName, res) => {
     try {
-        console.log(`➡️ 1. Iniciando exportación para la sala ID: ${id} por el usuario ID: ${userId}`);
-
-        let salaQuery = await db.query(
-            `SELECT r.diagrama, r.name 
-             FROM rooms r 
-             LEFT JOIN user_room ur ON r.id = ur.room_id 
-             WHERE r.id = $1 AND (r.ownerid = $2 OR ur.user_id = $2)`, 
-            [id, userId]
-        );
-
-        if (salaQuery.rows.length === 0) {
-            salaQuery = await db.query('SELECT diagrama, name FROM rooms WHERE id = $1 AND (ownerid = $2 OR id IN (SELECT room_id FROM user_room WHERE user_id = $2))', [id, userId]);
-        }
-
-        if (salaQuery.rows.length === 0) {
-            console.log("❌ Error: El usuario no tiene acceso a esta sala.");
-            return res.status(403).json({ error: 'No tienes acceso a esta sala o no existe' });
-        }
-
-        const diagramaJson = salaQuery.rows[0].diagrama;
-        
-        // 🔥 CORRECCIÓN 1: React Flow guarda los elementos como 'nodes', no como 'clases'
-        if (!diagramaJson || !diagramaJson.nodes || diagramaJson.nodes.length === 0) {
-             console.log("❌ Error: Diagrama vacío o sin nodos.");
-             return res.status(400).json({ error: 'El diagrama está vacío o no contiene clases válidas' });
-        }
-
-        // Filtramos solo los nodos que son clases UML (ignorando interfaces o notas si las hubiera)
-        const clasesUML = diagramaJson.nodes.filter(n => n.type === 'umlClass' && !n.data.label.includes('<<interface>>'));
+        const clasesUML = nodes.filter(n => n.type === 'umlClass' && !n.data.label.includes('<<interface>>'));
 
         if (clasesUML.length === 0) {
              return res.status(400).json({ error: 'No hay clases válidas para exportar en el diagrama' });
         }
 
-        const projectName = (salaQuery.rows[0].name || "proyecto_generado").replace(/\s+/g, "").toLowerCase();
-        console.log(`📁 2. Nombre del proyecto: ${projectName}`);
+        // --- NUEVA LÓGICA DE RELACIONES ---
+        // Procesamos las líneas (edges) para inyectar foráneas basadas en multiplicidad
+        const relationsMap = {}; 
+        (edges || []).forEach(edge => {
+            const sourceNode = nodes.find(n => n.id === edge.source);
+            const targetNode = nodes.find(n => n.id === edge.target);
+            if (!sourceNode || !targetNode) return;
+
+            const fromMult = (edge.data?.fromMultiplicity || "").toLowerCase();
+            const toMult = (edge.data?.toMultiplicity || "").toLowerCase();
+            const sourceName = sourceNode.data.label.replace('<<interface>>\n', '').trim();
+            const targetName = targetNode.data.label.replace('<<interface>>\n', '').trim();
+            const isMany = (v) => v.includes('*') || v.includes('n') || v.includes('m');
+
+            // Regla de oro (1 a Muchos): La FK se pone en la tabla de los Muchos.
+            // Si Origen es 1 y Destino es *, Destino recibe la foránea
+            if (!isMany(fromMult) && isMany(toMult)) {
+                if (!relationsMap[targetName]) relationsMap[targetName] = [];
+                relationsMap[targetName].push({
+                    RefClass: capitalize(toFieldName(sourceName)),
+                    refName: toFieldName(sourceName),
+                    colName: `id_${sourceName.toLowerCase()}`
+                });
+            }
+            // Si Origen es * y Destino es 1, Origen recibe la foránea
+            else if (isMany(fromMult) && !isMany(toMult)) {
+                if (!relationsMap[sourceName]) relationsMap[sourceName] = [];
+                relationsMap[sourceName].push({
+                    RefClass: capitalize(toFieldName(targetName)),
+                    refName: toFieldName(targetName),
+                    colName: `id_${targetName.toLowerCase()}`
+                });
+            }
+        });
+        // -----------------------------------
 
         const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), `sb-${projectName}-`));
-        console.log(`📂 3. Carpeta temporal creada en: ${tmpRoot}`);
-
         const basePath = path.join(tmpRoot, "src", "main", "java", "com", "example", projectName);
         const resPath = path.join(tmpRoot, "src", "main", "resources");
         const templatesPath = path.join(__dirname, '..', 'templates');
@@ -88,19 +90,15 @@ const exportarASpringBoot = async (req, res) => {
         await fs.ensureDir(basePath);
         await fs.ensureDir(resPath);
 
-        console.log("📝 4. Generando archivos pom.xml y DemoApplication...");
         const pomTpl = await fs.readFile(path.join(templatesPath, 'pom.xml.ejs'), 'utf8');
         await fs.writeFile(path.join(tmpRoot, "pom.xml"), ejs.render(pomTpl, { projectName }));
 
         const demoTpl = await fs.readFile(path.join(templatesPath, 'DemoApplication.java.ejs'), 'utf8');
         await fs.writeFile(path.join(basePath, "DemoApplication.java"), ejs.render(demoTpl, { projectName }));
 
-        console.log("⚙️ 5. Procesando clases del diagrama...");
         for (const nodo of clasesUML) {
-             // 🔥 CORRECCIÓN 2: Extraemos el nombre desde nodo.data.label
              const nombreClase = nodo.data.label.replace('<<interface>>\n', '').trim();
              const EntityName = capitalize(toFieldName(nombreClase));
-             console.log(`  -> Creando código para: ${EntityName}`);
              
              const entityDir = path.join(basePath, "domain");
              const dtoDir = path.join(basePath, "dto");
@@ -108,15 +106,8 @@ const exportarASpringBoot = async (req, res) => {
              const serviceDir = path.join(basePath, "service");
              const ctrlDir = path.join(basePath, "controller");
 
-             await Promise.all([
-                 fs.ensureDir(entityDir),
-                 fs.ensureDir(dtoDir),
-                 fs.ensureDir(repoDir),
-                 fs.ensureDir(serviceDir),
-                 fs.ensureDir(ctrlDir)
-             ]);
+             await Promise.all([fs.ensureDir(entityDir), fs.ensureDir(dtoDir), fs.ensureDir(repoDir), fs.ensureDir(serviceDir), fs.ensureDir(ctrlDir)]);
 
-             // 🔥 CORRECCIÓN 3: Extraemos los atributos desde nodo.data.atributos
              const cols = (nodo.data.atributos || []).map((attr) => {
                  const limpio = attr.replace(/^[\+\-\#]\s*/, '').trim();
                  const [nombreAttr, tipoAttr] = limpio.split(':').map(s => s.trim());
@@ -125,17 +116,19 @@ const exportarASpringBoot = async (req, res) => {
                      type: tipoAttr || "String",
                      javaType: sqlToJava(tipoAttr),
                      fieldName: toFieldName(nombreAttr),
-                     FieldNameCapital: capitalize(toFieldName(nombreAttr)),
-                     pk: (nombreAttr || "").toLowerCase() === "id",
-                     nullable: (nombreAttr || "").toLowerCase() !== "id"
+                     FieldNameCapital: capitalize(toFieldName(nombreAttr))
                  };
              });
+
+             // NUEVO: Agregamos las relaciones mapeadas a las variables de EJS
+             const relations = relationsMap[nombreClase] || [];
 
              const variablesEjs = {
                  projectName,
                  tableName: nombreClase.toLowerCase(),
                  EntityName,
                  columns: cols,
+                 relations: relations, // <-- Array con las llaves foráneas inyectadas
                  hasLocalDate: cols.some(c => c.javaType === "LocalDate"),
                  hasLocalDateTime: cols.some(c => c.javaType === "LocalDateTime")
              };
@@ -153,47 +146,89 @@ const exportarASpringBoot = async (req, res) => {
              await fs.writeFile(path.join(serviceDir, `${EntityName}Service.java`), ejs.render(serviceTpl, variablesEjs));
 
              const ctrlTpl = await fs.readFile(path.join(templatesPath, 'controller.ejs'), 'utf8');
-             await fs.writeFile(path.join(ctrlDir, `${EntityName}Controller.java`), ejs.render(ctrlTpl, { 
-                 projectName, EntityName, entityPath: nombreClase.toLowerCase() 
-             }));
+             await fs.writeFile(path.join(ctrlDir, `${EntityName}Controller.java`), ejs.render(ctrlTpl, { projectName, EntityName, entityPath: nombreClase.toLowerCase() }));
         }
 
-        console.log("🗄️ 6. Generando application.properties...");
-        await fs.writeFile(
-            path.join(resPath, "application.properties"),
-            `spring.datasource.url=jdbc:postgresql://localhost:5432/${projectName}\nspring.datasource.username=postgres\nspring.datasource.password=postgres\nspring.jpa.hibernate.ddl-auto=update\n`
-        );
+        const propertiesPath = path.join(templatesPath, 'application.properties.ejs');
+        const propertiesContent = await ejs.renderFile(propertiesPath, { projectName });
+        await fs.writeFile(path.join(resPath, "application.properties"), propertiesContent);
 
-        console.log("📦 7. Empaquetando en ZIP y enviando al cliente...");
         res.setHeader("Content-Type", "application/zip");
         res.setHeader("Content-Disposition", `attachment; filename=${projectName}.zip`);
-        
         const archive = archiver("zip", { zlib: { level: 9 } });
-        
-        archive.on("error", (err) => { 
-            console.error("❌ Error interno de archiver:", err);
-            if (!res.headersSent) res.status(500).json({ error: 'Error al comprimir' });
-        });
-        
-        res.on('close', () => {
-            console.log("✅ 8. Envío completado. Limpiando archivos temporales...");
-            fs.remove(tmpRoot).catch(console.error);
-        });
-
-        const salidaLocal = fs.createWriteStream(path.join(__dirname, '..', '..', `${projectName}.zip`));
-        archive.pipe(salidaLocal);
-
+        archive.on("error", (err) => { if (!res.headersSent) res.status(500).json({ error: 'Error al comprimir' }); });
+        res.on('close', () => fs.remove(tmpRoot).catch(console.error));
         archive.pipe(res);
         archive.directory(tmpRoot, false);
         await archive.finalize();
 
     } catch (error) {
-        console.error('❌ Error crítico al exportar a Spring Boot:', error);
-        if (!res.headersSent) {
-            res.status(500).json({ error: 'Error interno al generar el proyecto Spring Boot', detalle: error.message });
-        }
+        if (!res.headersSent) res.status(500).json({ error: 'Error al generar Spring Boot', detalle: error.message });
     }
 };
 
-// Exportamos la función para que pueda ser utilizada en las rutas
-module.exports = { exportarASpringBoot };
+// ============================================================================
+// 1. EXPORTACIÓN DESDE SALAS (BD)
+// ============================================================================
+const exportarASpringBoot = async (req, res) => {
+    const { id } = req.params; 
+    const userId = getUserId(req);
+
+    try {
+        let salaQuery = await db.query(
+            `SELECT r.diagrama, r.name 
+             FROM rooms r 
+             LEFT JOIN user_room ur ON r.id = ur.room_id 
+             WHERE r.id = $1 AND (r.ownerid = $2 OR ur.user_id = $2)`, 
+            [id, userId]
+        );
+
+        if (salaQuery.rows.length === 0) {
+            salaQuery = await db.query('SELECT diagrama, name FROM rooms WHERE id = $1 AND (ownerid = $2 OR id IN (SELECT room_id FROM user_room WHERE user_id = $2))', [id, userId]);
+        }
+
+        if (salaQuery.rows.length === 0) {
+            return res.status(403).json({ error: 'No tienes acceso a esta sala o no existe' });
+        }
+
+        const diagramaJson = salaQuery.rows[0].diagrama;
+        
+        if (!diagramaJson || !diagramaJson.nodes || diagramaJson.nodes.length === 0) {
+             return res.status(400).json({ error: 'El diagrama está vacío o no contiene clases válidas' });
+        }
+
+        const projectName = (salaQuery.rows[0].name || "proyecto_generado").replace(/\s+/g, "").toLowerCase();
+        
+        // CORRECCIÓN: Ahora le pasamos diagramaJson.edges a la función
+        await generarProyecto(diagramaJson.nodes, diagramaJson.edges || [], projectName, res);
+
+    } catch (error) {
+        console.error(error);
+        if (!res.headersSent) res.status(500).json({ error: 'Error interno de BD' });
+    }
+};
+
+// ============================================================================
+// 2. NUEVO: EXPORTACIÓN DIRECTA DESDE EL LIENZO (LOCAL / INDIVIDUAL)
+// ============================================================================
+const exportarASpringBootLocal = async (req, res) => {
+    try {
+        // CORRECCIÓN: Ahora recibimos los nodes Y los edges desde el frontend
+        const { nodes, edges } = req.body; 
+
+        if (!nodes || nodes.length === 0) {
+             return res.status(400).json({ error: 'El diagrama está vacío o no contiene clases válidas' });
+        }
+
+        const projectName = "proyecto_local";
+        
+        // CORRECCIÓN: Le pasamos los edges a la función
+        await generarProyecto(nodes, edges || [], projectName, res);
+
+    } catch (error) {
+        console.error(error);
+        if (!res.headersSent) res.status(500).json({ error: 'Error interno en exportación local' });
+    }
+};
+
+module.exports = { exportarASpringBoot, exportarASpringBootLocal };

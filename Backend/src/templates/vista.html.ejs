@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de <%= EntityName %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-primary shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/index.html">⬅ Volver al Inicio</a>
+            <span class="navbar-text text-white fw-bold">Módulo: <%= EntityName %></span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Lista de <%= EntityName %>s</h3>
+            <button class="btn btn-success" onclick="abrirModal()">+ Nuevo Registro</button>
+        </div>
+
+        <!-- Tabla Responsiva -->
+        <div class="table-responsive bg-white shadow-sm rounded">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <% columns.forEach(function(col) { if (col.fieldName.toLowerCase() !== 'id' && !col.name.toLowerCase().startsWith('id_')) { %>
+                        <th><%= col.FieldNameCapital %></th>
+                        <% }}); %>
+                        <% relations.forEach(function(rel) { %>
+                        <th>ID <%= rel.RefClass %></th>
+                        <% }); %>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaCuerpo">
+                    <!-- Los datos se cargarán aquí con JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Formulario -->
+    <div class="modal fade" id="formularioModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalTitulo">Nuevo Registro</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="registroForm">
+                        <input type="hidden" id="inputId">
+                        
+                        <% columns.forEach(function(col) { if (col.fieldName.toLowerCase() !== 'id' && !col.name.toLowerCase().startsWith('id_')) { %>
+                        <div class="mb-3">
+                            <label class="form-label"><%= col.FieldNameCapital %></label>
+                            <input type="<%= col.javaType === 'LocalDate' ? 'date' : (col.javaType === 'Integer' || col.javaType === 'BigDecimal' ? 'number' : 'text') %>" 
+                                   class="form-control" id="input_<%= col.fieldName %>" required>
+                        </div>
+                        <% }}); %>
+
+                        <% relations.forEach(function(rel) { %>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-primary">Vincular con <%= rel.RefClass %> (Ingrese ID)</label>
+                            <input type="number" class="form-control border-primary" id="input_rel_<%= rel.refName %>" required placeholder="Ej: 1">
+                        </div>
+                        <% }); %>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarRegistro()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://localhost:8081/api/<%= tableName %>s';
+        const modal = new bootstrap.Modal(document.getElementById('formularioModal'));
+
+        // Cargar datos al iniciar
+        document.addEventListener("DOMContentLoaded", cargarDatos);
+
+        async function cargarDatos() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                const tbody = document.getElementById('tablaCuerpo');
+                tbody.innerHTML = '';
+
+                data.forEach(item => {
+                    let fila = `<tr><td>${item.id}</td>`;
+                    
+                    <% columns.forEach(function(col) { if (col.fieldName.toLowerCase() !== 'id' && !col.name.toLowerCase().startsWith('id_')) { %>
+                    fila += `<td>${item.<%= col.fieldName %> || ''}</td>`;
+                    <% }}); %>
+                    
+                    <% relations.forEach(function(rel) { %>
+                    fila += `<td>${item.<%= rel.refName %> ? item.<%= rel.refName %>.id : 'N/A'}</td>`;
+                    <% }); %>
+
+                    fila += `
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-danger" onclick="eliminarRegistro(${item.id})">Borrar</button>
+                        </td>
+                    </tr>`;
+                    tbody.innerHTML += fila;
+                });
+            } catch (error) {
+                console.error("Error al cargar datos:", error);
+            }
+        }
+
+        function abrirModal() {
+            document.getElementById('registroForm').reset();
+            document.getElementById('inputId').value = '';
+            document.getElementById('modalTitulo').innerText = 'Nuevo Registro';
+            modal.show();
+        }
+
+        async function guardarRegistro() {
+            const id = document.getElementById('inputId').value;
+            const metodo = id ? 'PUT' : 'POST';
+            const url = id ? `${API_URL}/${id}` : API_URL;
+
+            // Armamos el JSON leyendo los inputs
+            const payload = {};
+            
+            <% columns.forEach(function(col) { if (col.fieldName.toLowerCase() !== 'id' && !col.name.toLowerCase().startsWith('id_')) { %>
+            payload.<%= col.fieldName %> = document.getElementById('input_<%= col.fieldName %>').value;
+            <% }}); %>
+
+            // Armamos los objetos relacionales anidados (La trampa que corregimos en Postman)
+            <% relations.forEach(function(rel) { %>
+            const relId_<%= rel.refName %> = document.getElementById('input_rel_<%= rel.refName %>').value;
+            if(relId_<%= rel.refName %>) {
+                payload.<%= rel.refName %> = { id: parseInt(relId_<%= rel.refName %>) };
+            }
+            <% }); %>
+
+            try {
+                const res = await fetch(url, {
+                    method: metodo,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    modal.hide();
+                    cargarDatos();
+                } else {
+                    alert("Error al guardar el registro. Verifique los datos.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }
+
+        async function eliminarRegistro(id) {
+            if (confirm("¿Está seguro de eliminar este registro?")) {
+                await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                cargarDatos();
+            }
+        }
+    </script>
+</body>
+</html>

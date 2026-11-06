@@ -11,7 +11,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Ruta para generar UML con texto/voz (Protegida)
 router.post('/generar', verificarToken, procesarInstruccionIA);
-router.post('/vision', verificarToken, upload.single('imagen'), generarDesdeImagen);
+router.post('/generar-imagen', verificarToken, upload.single('imagen'), generarDesdeImagen);
+// router.post('/vision', verificarToken, upload.single('imagen'), generarDesdeImagen);
 
 // Exportamos el router para que pueda ser usado en app.js
 module.exports = router;

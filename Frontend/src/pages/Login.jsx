@@ -1,6 +1,6 @@
 // src/pages/Login.jsx
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { HelpCircle, Settings } from 'lucide-react';
 
 export default function Login() {
@@ -8,8 +8,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
-  
-  const navigate = useNavigate();
 
   const manejarLogin = async (e) => {
     e.preventDefault(); // Evita recargar la página
@@ -28,16 +26,18 @@ export default function Login() {
 
       if (!respuesta.ok) {
         // Muestra el error exacto que devuelva el backend
-        throw new Error(data.error || 'Credenciales incorrectas');
+        throw new Error(data.message || data.error || 'Credenciales incorrectas');
       }
 
-      // Si todo sale bien, guardamos el token y redirigimos
+      // Si todo sale bien, guardamos el token
       localStorage.setItem('token', data.token);
-      navigate('/salas');
+      
+      // SOLUCIÓN: Forzamos la redirección nativa para asegurar que la app 
+      // se monte de nuevo y lea el token correctamente sin rebotar al usuario.
+      window.location.href = '/salas';
 
     } catch (err) {
       setError(err.message);
-    } finally {
       setCargando(false);
     }
   };

@@ -1,25 +1,53 @@
-// src/templates/dto.ejs
-// Plantilla para generar un DTO en Spring Boot
 package com.example.<%= projectName %>.dto;
 
+import com.example.<%= projectName %>.domain.*;
 <% if (hasLocalDate) { %>import java.time.LocalDate;<% } %>
 <% if (hasLocalDateTime) { %>import java.time.LocalDateTime;<% } %>
+import java.math.BigDecimal;
 
 public class <%= EntityName %>Dto {
 
     private Long id;
 
-    <% columns.forEach(function(col){ %>
+<% columns.forEach(function(col) { %>
+<% if (col.fieldName.toLowerCase() !== 'id') { %>
+<% if (col.name.toLowerCase().startsWith('id_')) { 
+     let refName = col.name.toLowerCase().replace('id_', '');
+     let RefClass = refName.charAt(0).toUpperCase() + refName.slice(1);
+%>
+    private <%= RefClass %> <%= refName %>;
+<% } else { %>
     private <%= col.javaType %> <%= col.fieldName %>;
-    <% }); %>
+<% } %>
+<% } %>
+<% }); %>
+
+<% relations.forEach(function(rel) { %>
+    private <%= rel.RefClass %> <%= rel.refName %>;
+<% }); %>
 
     public <%= EntityName %>Dto() {}
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    <% columns.forEach(function(col){ %>
+<% columns.forEach(function(col) { %>
+<% if (col.fieldName.toLowerCase() !== 'id') { %>
+<% if (col.name.toLowerCase().startsWith('id_')) { 
+     let refName = col.name.toLowerCase().replace('id_', '');
+     let RefClass = refName.charAt(0).toUpperCase() + refName.slice(1);
+%>
+    public <%= RefClass %> get<%= RefClass %>() { return this.<%= refName %>; }
+    public void set<%= RefClass %>(<%= RefClass %> <%= refName %>) { this.<%= refName %> = <%= refName %>; }
+<% } else { %>
     public <%= col.javaType %> get<%= col.FieldNameCapital %>() { return this.<%= col.fieldName %>; }
     public void set<%= col.FieldNameCapital %>(<%= col.javaType %> <%= col.fieldName %>) { this.<%= col.fieldName %> = <%= col.fieldName %>; }
-    <% }); %>
+<% } %>
+<% } %>
+<% }); %>
+
+<% relations.forEach(function(rel) { %>
+    public <%= rel.RefClass %> get<%= rel.RefClass %>() { return this.<%= rel.refName %>; }
+    public void set<%= rel.RefClass %>(<%= rel.RefClass %> <%= rel.refName %>) { this.<%= rel.refName %> = <%= rel.refName %>; }
+<% }); %>
 }
